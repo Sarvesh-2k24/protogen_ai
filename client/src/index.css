@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100 font-sans antialiased;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.4);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}
+
+/* Protocol Markdown Typography & Table Styling */
+.protocol-preview h1,
+.prose h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #60a5fa;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.protocol-preview h2,
+.prose h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #93c5fd;
+  margin-top: 1.25rem;
+  margin-bottom: 0.6rem;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+  padding-bottom: 0.3rem;
+}
+
+.protocol-preview h3,
+.prose h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #bfdbfe;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.protocol-preview h4,
+.prose h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin-top: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+.protocol-preview p,
+.prose p {
+  margin-top: 0.4rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+.protocol-preview ul,
+.prose ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin-top: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.protocol-preview ol,
+.prose ol {
+  list-style-type: decimal;
+  padding-left: 1.25rem;
+  margin-top: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.protocol-preview li,
+.prose li {
+  margin-top: 0.2rem;
+  margin-bottom: 0.2rem;
+}
+
+.protocol-preview table,
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.8rem;
+  background-color: rgba(15, 23, 42, 0.6);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid rgba(51, 65, 85, 0.8);
+}
+
+.protocol-preview th,
+.prose th {
+  background-color: rgba(30, 41, 59, 0.9);
+  color: #93c5fd;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(51, 65, 85, 0.8);
+}
+
+.protocol-preview td,
+.prose td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  color: #cbd5e1;
+}
+
+.protocol-preview tr:nth-child(even),
+.prose tr:nth-child(even) {
+  background-color: rgba(30, 41, 59, 0.3);
+}
+
+.protocol-preview pre,
+.prose pre {
+  background-color: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  border-radius: 0.75rem;
+  padding: 0.85rem;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  margin-top: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.protocol-preview code,
+.prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background-color: rgba(30, 41, 59, 0.8);
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+  color: #38bdf8;
+}
+
+.protocol-preview blockquote,
+.prose blockquote {
+  border-left: 3px solid #3b82f6;
+  padding-left: 0.75rem;
+  margin-left: 0;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.protocol-preview hr,
+.prose hr {
+  border: 0;
+  height: 1px;
+  background-color: rgba(51, 65, 85, 0.8);
+  margin: 1.25rem 0;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.15s ease-out forwards;
+}
+
+/* Print styles for protocol export */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  header, form, .no-print {
+    display: none !important;
+  }
+  .protocol-preview {
+    color: black !important;
+  }
+  .protocol-preview th {
+    background-color: #f1f5f9 !important;
+    color: black !important;
+  }
+  .protocol-preview td {
+    color: black !important;
+  }
+}
