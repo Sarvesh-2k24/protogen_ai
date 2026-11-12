@@ -98,7 +98,7 @@ async function callCloudLLMAPI({ provider, apiKey, model, messages, temperature 
       headers['Authorization'] = `Bearer ${apiKey}`;
       headers['HTTP-Referer'] = 'https://protocol-gen.local';
       body = {
-        model: model || 'meta-llama/llama-3.1-8b-instruct:free',
+        model: model || 'huihui-ai/Qwen2.5-72B-Instruct-abliterated:free',
         messages,
         temperature,
         max_tokens: maxTokens
@@ -109,7 +109,7 @@ async function callCloudLLMAPI({ provider, apiKey, model, messages, temperature 
       url = 'https://router.huggingface.co/v1/chat/completions';
       headers['Authorization'] = `Bearer ${apiKey}`;
       body = {
-        model: model || 'meta-llama/Llama-3.1-8B-Instruct',
+        model: model || 'huihui-ai/Qwen2.5-72B-Instruct-abliterated',
         messages,
         temperature,
         max_tokens: maxTokens
@@ -181,7 +181,7 @@ async function executeDAGPipeline({
 
   // ── LEVEL 1: ARCHITECT AGENT ─────────────────────────────────────────
   log(1, 'ARCHITECT', 'ACTIVE', `Analyzing study design for "${entities.drug}" in "${entities.indication}" (${entities.phase})...`);
-  
+
   const architectContext = {
     drug: entities.drug,
     indication: entities.indication,
@@ -206,16 +206,23 @@ async function executeDAGPipeline({
   const cloudProvider = apiConfig.provider || (cloudApiKey?.startsWith('gsk_') ? 'groq' : (cloudApiKey?.startsWith('sk-') ? 'openai' : 'huggingface'));
 
   if (cloudApiKey) {
-    const systemPrompt = `You are a team of expert Clinical Trial Protocol Writers (Principal Investigator, Biostatistician, Clinical Ops, and Regulatory Affairs).
+    const systemPrompt = `You are an elite team of expert Clinical Trial Protocol Writers (Principal Investigator, Lead Biostatistician, Head of Clinical Operations, and Regulatory Affairs Director).
 Draft the requested ICH M11 section for the protocol "${protocolTitle}".
-Be clinically specific with real numbers, proper headings, and clean markdown.
-Avoid raw LaTeX syntax like $\\le 2.5 \\times$; use clean unicode like ≤ 2.5 ×.`;
+CRITICAL DIRECTIVES:
+1. WRITE BIGGER, IN-DEPTH PARAGRAPHS: Each narrative paragraph must be substantive (at least 4 to 8 detailed clinical sentences) detailing scientific rationale, biological mechanism, patient safety protections, and clinical context.
+2. GENERATE MORE POINTS & EXHAUSTIVE SUB-CLAUSES: Provide comprehensive, multi-point breakdowns (at least 8 to 15 distinct, structured criteria or procedures) with exact quantitative thresholds, units, time windows, and monitoring rules.
+3. Be clinically specific with real numbers, proper headings, and clean markdown.
+4. Avoid raw LaTeX syntax like $\\le 2.5 \\times$; use clean unicode like ≤ 2.5 ×.`;
 
     const userPrompt = `Protocol Title: ${protocolTitle}
 Section: ${stepTitle}
 Key Entities: ${entities.drug} in ${entities.indication} (${entities.phase})
 Instruction: ${userInstruction || 'Draft the complete, publication-ready regulatory section.'}
-Existing Draft: ${intermediateDraft ? intermediateDraft.substring(0, 1000) : '(None)'}`;
+Existing Draft: ${intermediateDraft ? intermediateDraft.substring(0, 10000) : '(None)'}
+
+OUTPUT REQUIREMENTS:
+- Provide BIGGER, FULL-LENGTH PARAGRAPHS with comprehensive clinical explanations.
+- Provide MORE POINTS and exhaustive sub-clauses with concrete clinical criteria.`;
 
     const cloudRes = await callCloudLLMAPI({
       provider: cloudProvider,
@@ -225,8 +232,8 @@ Existing Draft: ${intermediateDraft ? intermediateDraft.substring(0, 1000) : '(N
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      temperature: 0.3,
-      maxTokens: 1600
+      temperature: 0.35,
+      maxTokens: 2500
     });
 
     if (cloudRes && cloudRes.content) {

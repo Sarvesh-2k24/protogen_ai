@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
-import { FileText, Edit3, Eye, Copy, Check, Download, Sparkles, BookOpen, Layers, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  FileText, Edit3, Eye, Copy, Check, Sparkles,
+  BookOpen, Layers, CheckCircle2, MessageSquare, X, CornerDownLeft
+} from 'lucide-react';
 import ProtocolContentRenderer from './ProtocolContentRenderer';
+import PointAndCommentBlock from './PointAndCommentBlock';
+import { splitMarkdownIntoBlocks, joinBlocksToMarkdown } from '../utils/markdownBlocks';
 
 export default function DocumentViewer({
   title,
@@ -13,12 +18,48 @@ export default function DocumentViewer({
   isGeneratingAll
 }) {
   const [viewMode, setViewMode] = useState('active'); // 'active' | 'full'
-  const [editorTab, setEditorTab] = useState('preview'); // 'preview' | 'edit'
+  const [editorTab, setEditorTab] = useState('review'); // 'review' (Point & Comment) | 'read' (Pristine preview) | 'markdown' (Raw editor)
   const [copied, setCopied] = useState(false);
+  const [showCommentsDrawer, setShowCommentsDrawer] = useState(false);
+  const [showHelperBanner, setShowHelperBanner] = useState(true);
+
+  // Store comments per section: { [sectionId]: { [blockIndex]: [ { id, text, author, timestamp, resolved } ] } }
+  const [sectionComments, setSectionComments] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`protocol_comments_${title || 'default'}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Save comments to localStorage when changed
+  useEffect(() => {
+    try {
+      localStorage.setItem(`protocol_comments_${title || 'default'}`, JSON.stringify(sectionComments));
+    } catch {
+      // Ignore storage errors
+    }
+  }, [sectionComments, title]);
 
   const activeContent = sectionDrafts[activeSection?.id] || '';
 
-  // Calculate full protocol markdown
+  // Parse current active section markdown into discrete interactive paragraph blocks
+  const blocks = useMemo(() => {
+    return splitMarkdownIntoBlocks(activeContent);
+  }, [activeContent]);
+
+  // Comments for the currently active section
+  const currentSectionComments = sectionComments[activeSection?.id] || {};
+  const totalActiveComments = useMemo(() => {
+    let count = 0;
+    Object.values(currentSectionComments).forEach(list => {
+      count += (list || []).filter(c => !c.resolved).length;
+    });
+    return count;
+  }, [currentSectionComments]);
+
+  // Full protocol markdown generator
   const generateFullMarkdown = () => {
     let md = `# CLINICAL TRIAL PROTOCOL\n\n`;
     md += `**Protocol Title:** ${title || 'Investigational Clinical Trial Protocol'}\n\n`;
@@ -53,6 +94,89 @@ export default function DocumentViewer({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // ── Block-level updates (Point & Edit) ────────────────────────────────
+  const handleSaveBlockEdit = (blockIndex, newBlockText) => {
+    const currentBlocks = splitMarkdownIntoBlocks(activeContent);
+    if (blockIndex >= 0 && blockIndex < currentBlocks.length) {
+      currentBlocks[blockIndex].rawText = newBlockText;
+      const updatedMarkdown = joinBlocksToMarkdown(currentBlocks);
+      onUpdateDraft(activeSection.id, updatedMarkdown);
+    }
+  };
+
+  // ── Point & AI Revision ───────────────────────────────────────────────
+  const handleApplyAIRevision = async (blockIndex, rawText, instruction) => {
+    try {
+      const res = await fetch('/api/revise-paragraph', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paragraphText: rawText,
+          comment: instruction,
+          sectionTitle: activeSection?.title || '',
+          protocolTitle: title || '',
+          apiProvider: localStorage.getItem('api_provider') || 'groq',
+          apiKey: localStorage.getItem('api_key') || localStorage.getItem('hf_token') || '',
+          hfModel: localStorage.getItem('hf_model') || ''
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.revisedParagraph) {
+          handleSaveBlockEdit(blockIndex, data.revisedParagraph);
+        }
+      } else {
+        const err = await res.json();
+        alert('Revision failed: ' + (err.error || 'Server error'));
+      }
+    } catch (err) {
+      console.error('Error applying AI revision:', err);
+      alert('AI Revision failed: ' + err.message);
+    }
+  };
+
+  // ── Comments management ───────────────────────────────────────────────
+  const handleAddComment = (blockIndex, commentText) => {
+    const newComment = {
+      id: `c-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      text: commentText,
+      author: 'Reviewer',
+      timestamp: new Date().toISOString(),
+      resolved: false
+    };
+
+    setSectionComments(prev => {
+      const secId = activeSection.id;
+      const secData = { ...(prev[secId] || {}) };
+      const blockComments = [...(secData[blockIndex] || []), newComment];
+      secData[blockIndex] = blockComments;
+      return { ...prev, [secId]: secData };
+    });
+  };
+
+  const handleResolveComment = (blockIndex, commentId) => {
+    setSectionComments(prev => {
+      const secId = activeSection.id;
+      const secData = { ...(prev[secId] || {}) };
+      const blockComments = (secData[blockIndex] || []).map(c =>
+        c.id === commentId ? { ...c, resolved: true } : c
+      );
+      secData[blockIndex] = blockComments;
+      return { ...prev, [secId]: secData };
+    });
+  };
+
+  const handleDeleteComment = (blockIndex, commentId) => {
+    setSectionComments(prev => {
+      const secId = activeSection.id;
+      const secData = { ...(prev[secId] || {}) };
+      const blockComments = (secData[blockIndex] || []).filter(c => c.id !== commentId);
+      secData[blockIndex] = blockComments;
+      return { ...prev, [secId]: secData };
+    });
+  };
+
   // Word count helper
   const wordCount = (text) => {
     if (!text) return 0;
@@ -64,8 +188,8 @@ export default function DocumentViewer({
 
   return (
     <div className="flex flex-col h-[750px] bg-slate-850 border border-slate-700/80 rounded-2xl overflow-hidden shadow-xl">
-      {/* Top Navigation & Toolbar */}
-      <div className="bg-slate-800/90 border-b border-slate-700/80 p-3.5 flex items-center justify-between flex-wrap gap-2">
+      {/* ── Top Navigation & Review Toolbar ────────────────────────────── */}
+      <div className="bg-slate-800/90 border-b border-slate-700/80 p-3 flex items-center justify-between flex-wrap gap-2">
         {/* Left: View Mode Tabs */}
         <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-750">
           <button
@@ -92,33 +216,63 @@ export default function DocumentViewer({
           </button>
         </div>
 
-        {/* Right: Actions */}
+        {/* Center / Right: Interactive Editing & Review Modes */}
         <div className="flex items-center gap-2">
           {viewMode === 'active' && (
             <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-750 text-xs">
+              {/* Point & Comment Review Mode */}
               <button
-                onClick={() => setEditorTab('preview')}
+                onClick={() => setEditorTab('review')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition-colors cursor-pointer font-medium ${
+                  editorTab === 'review'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Point to any paragraph to comment, edit, or revise with AI"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Point & Comment</span>
+              </button>
+
+              {/* Pristine Read Mode */}
+              <button
+                onClick={() => setEditorTab('read')}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                  editorTab === 'preview'
+                  editorTab === 'read'
                     ? 'bg-slate-700 text-white font-medium'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
+                title="Pristine read-only view"
               >
                 <Eye className="w-3 h-3" />
-                <span>Rendered</span>
+                <span>Read</span>
               </button>
+
+              {/* Full Raw Markdown Editor */}
               <button
-                onClick={() => setEditorTab('edit')}
+                onClick={() => setEditorTab('markdown')}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                  editorTab === 'edit'
+                  editorTab === 'markdown'
                     ? 'bg-slate-700 text-white font-medium'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
+                title="Direct raw Markdown editor"
               >
                 <Edit3 className="w-3 h-3" />
-                <span>Markdown Editor</span>
+                <span>Markdown</span>
               </button>
             </div>
+          )}
+
+          {/* Comments Toggle Button (if comments exist) */}
+          {totalActiveComments > 0 && viewMode === 'active' && (
+            <button
+              onClick={() => setShowCommentsDrawer(!showCommentsDrawer)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs font-medium transition-colors cursor-pointer"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>{totalActiveComments} Comment{totalActiveComments !== 1 ? 's' : ''}</span>
+            </button>
           )}
 
           <button
@@ -141,14 +295,14 @@ export default function DocumentViewer({
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* ── Main Content Area ──────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto p-5 sm:p-6 bg-slate-900/50">
         {viewMode === 'active' ? (
-          editorTab === 'edit' ? (
-            /* Live Markdown Editor */
+          editorTab === 'markdown' ? (
+            /* Direct Raw Markdown Source Editor */
             <div className="h-full flex flex-col">
               <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-                <span>Direct Markdown Editor for {activeSection?.title}</span>
+                <span>Raw Markdown Editor for {activeSection?.title}</span>
                 <span className="font-mono">{activeWords} words</span>
               </div>
               <textarea
@@ -159,26 +313,66 @@ export default function DocumentViewer({
               />
             </div>
           ) : (
-            /* Rendered Markdown Preview for Active Step */
+            /* Interactive Rendered View (Point & Comment or Read Mode) */
             <div className="max-w-3xl mx-auto">
               {activeContent.trim() ? (
                 <div>
-                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-750">
+                  {/* Status & Word Count Header */}
+                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-750">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                      <span className="text-xs px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
                         ICH M11 Section Ready
                       </span>
                       <span className="text-xs text-slate-400 font-mono">
                         {activeWords} words
                       </span>
+                      {totalActiveComments > 0 && (
+                        <span className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md font-medium">
+                          {totalActiveComments} active comment{totalActiveComments !== 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <div className="protocol-preview">
-                    <ProtocolContentRenderer content={activeContent} />
+                  {/* Point & Comment Guide Banner (dismissible) */}
+                  {editorTab === 'review' && showHelperBanner && (
+                    <div className="flex items-center justify-between p-2.5 px-3 mb-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span>
+                          <strong>Point & Comment Active:</strong> Hover over any paragraph to comment or prompt the AI to revise it in place. Click <strong>Edit</strong> or double-click to tweak text directly.
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setShowHelperBanner(false)}
+                        className="text-blue-400 hover:text-blue-200 p-0.5 ml-2 cursor-pointer"
+                        title="Dismiss helper"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* ── Interactive Paragraph Blocks ───────────────────── */}
+                  <div className="space-y-3">
+                    {blocks.map((block, idx) => (
+                      <PointAndCommentBlock
+                        key={block.id || idx}
+                        block={block}
+                        index={idx}
+                        comments={currentSectionComments[idx] || []}
+                        onSaveEdit={(newText) => handleSaveBlockEdit(idx, newText)}
+                        onAddComment={(commentText) => handleAddComment(idx, commentText)}
+                        onResolveComment={(commentId) => handleResolveComment(idx, commentId)}
+                        onDeleteComment={(commentId) => handleDeleteComment(idx, commentId)}
+                        onApplyAIRevision={(rawText, instruction) => handleApplyAIRevision(idx, rawText, instruction)}
+                        isReviewMode={editorTab === 'review'}
+                      />
+                    ))}
                   </div>
                 </div>
               ) : (
+                /* Empty Section Placeholder */
                 <div className="h-96 flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-slate-800 rounded-2xl">
                   <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-3">
                     <FileText className="w-6 h-6" />
@@ -194,7 +388,7 @@ export default function DocumentViewer({
             </div>
           )
         ) : (
-          /* Full Unified Protocol View */
+          /* ── Full Unified Protocol View ─────────────────────────────── */
           <div className="max-w-4xl mx-auto py-2">
             <div className="text-center mb-8 pb-6 border-b border-slate-800">
               <span className="text-xs px-3 py-1 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 uppercase tracking-widest font-bold">
@@ -269,7 +463,7 @@ export default function DocumentViewer({
         )}
       </div>
 
-      {/* Footer Info Bar */}
+      {/* ── Footer Info Bar ────────────────────────────────────────────── */}
       <div className="bg-slate-900/90 border-t border-slate-800 px-4 py-2.5 flex items-center justify-between text-xs text-slate-400">
         <div className="flex items-center gap-2">
           <span className="text-slate-300 font-medium">Compliance:</span>
@@ -282,4 +476,3 @@ export default function DocumentViewer({
     </div>
   );
 }
-

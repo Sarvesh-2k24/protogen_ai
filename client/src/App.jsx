@@ -20,7 +20,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
 
   // LLM & Multi-Agent DAG settings
-  const [hfModel, setHfModel] = useState(localStorage.getItem('hf_model') || 'meta-llama/Llama-3.1-8B-Instruct');
+  const [hfModel, setHfModel] = useState(localStorage.getItem('hf_model') || 'huihui-ai/Qwen2.5-72B-Instruct-abliterated');
   const [hfToken, setHfToken] = useState(localStorage.getItem('hf_token') || '');
   const [apiProvider, setApiProvider] = useState(localStorage.getItem('api_provider') || 'groq');
   const [apiKey, setApiKey] = useState(localStorage.getItem('api_key') || localStorage.getItem('hf_token') || '');

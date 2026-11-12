@@ -24,7 +24,7 @@ const API_PROVIDERS = [
     id: 'openrouter',
     name: 'OpenRouter (Llama 3.1 & Free Models)',
     description: 'Access multiple top clinical models with a single unified key.',
-    defaultModel: 'meta-llama/llama-3.1-8b-instruct:free',
+    defaultModel: 'huihui-ai/Qwen2.5-72B-Instruct-abliterated:free',
     keyPlaceholder: 'sk-or-xxxxxxxxxxxxxxxxxxxxxxxxxx',
     keyLink: 'https://openrouter.ai/keys',
     keyLinkText: 'Get OpenRouter Key'
@@ -33,7 +33,7 @@ const API_PROVIDERS = [
     id: 'huggingface',
     name: 'Hugging Face API',
     description: 'Access Meta-Llama models hosted on Hugging Face Inference.',
-    defaultModel: 'meta-llama/Llama-3.1-8B-Instruct',
+    defaultModel: 'huihui-ai/Qwen2.5-72B-Instruct-abliterated',
     keyPlaceholder: 'hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxx',
     keyLink: 'https://huggingface.co/settings/tokens',
     keyLinkText: 'Get Free HF Token'
@@ -130,11 +130,10 @@ export default function SettingsModal({
                 <label
                   key={p.id}
                   onClick={() => setSelectedProvider(p.id)}
-                  className={`flex items-start gap-3 p-2.5 rounded-xl border cursor-pointer transition-all ${
-                    selectedProvider === p.id
+                  className={`flex items-start gap-3 p-2.5 rounded-xl border cursor-pointer transition-all ${selectedProvider === p.id
                       ? 'bg-blue-600/10 border-blue-500/60 ring-1 ring-blue-500/30'
                       : 'bg-slate-800/60 border-slate-700 hover:bg-slate-800'
-                  }`}
+                    }`}
                 >
                   <input
                     type="radio"

@@ -6,8 +6,9 @@ const { searchProtocolReferences } = require('./services/referenceService');
 const { PROTOCOL_SECTIONS } = require('./services/protocolStructure');
 const { callHuggingFaceLLM, AVAILABLE_HF_MODELS, checkLLMHealth } = require('./services/hfService');
 const { generateProtocolDocx } = require('./services/docxExportService');
-const { executeDAGPipeline, DAG_LEVELS } = require('./services/multiAgentDAG');
+const { executeDAGPipeline, DAG_LEVELS, callCloudLLMAPI } = require('./services/multiAgentDAG');
 const { refineClinicalContent } = require('./services/clinicalContentFilter');
+const { transformProtocolContent } = require('./services/protocolTransformService');
 
 const path = require('path');
 const app = express();
@@ -67,7 +68,7 @@ app.get('/api/models', (req, res) => {
     providers: [
       { id: 'groq', name: 'Groq Cloud (Ultra-Fast 500 tok/sec)', defaultModel: 'llama-3.3-70b-versatile' },
       { id: 'openai', name: 'OpenAI (GPT-4o mini)', defaultModel: 'gpt-4o-mini' },
-      { id: 'huggingface', name: 'Hugging Face Router', defaultModel: 'meta-llama/Llama-3.1-8B-Instruct' },
+      { id: 'huggingface', name: 'Hugging Face Router', defaultModel: 'huihui-ai/Qwen2.5-72B-Instruct-abliterated' },
       { id: 'local', name: 'Local Neural GPU (Qwen2.5 on RTX 3050)', defaultModel: 'Qwen/Qwen2.5-0.5B-Instruct' },
       { id: 'builtin', name: 'Multi-Agent DAG High-Speed Engine', defaultModel: 'Clinical-DAG-Engine' }
     ]
@@ -196,6 +197,96 @@ app.post('/api/chat', async (req, res) => {
   } catch (err) {
     console.error('[Chat] Error:', err);
     res.status(500).json({ error: 'Chat failed: ' + err.message });
+  }
+});
+
+// ── Revise Single Paragraph (Point & Comment) ─────────────────────────
+app.post('/api/revise-paragraph', async (req, res) => {
+  try {
+    const {
+      paragraphText,
+      comment,
+      sectionTitle = '',
+      protocolTitle = '',
+      apiProvider,
+      apiKey,
+      hfModel,
+      hfToken
+    } = req.body;
+
+    if (!paragraphText || !comment) {
+      return res.status(400).json({ error: 'Both paragraphText and comment are required' });
+    }
+
+    console.log(`[Point & Comment] Revising paragraph for "${comment.substring(0, 60)}..."`);
+
+    const userPrompt = `Protocol Title: ${protocolTitle || 'Investigational Protocol'}
+Section: ${sectionTitle}
+
+Original Paragraph:
+"""
+${paragraphText}
+"""
+
+Reviewer Comment / Revision Instruction:
+"""
+${comment}
+"""
+
+Your task:
+Rewrite ONLY the paragraph above, fully applying the reviewer's comment or instruction.
+Maintain strict ICH M11 and GCP clinical standards.
+Output ONLY the rewritten replacement paragraph with no conversational filler or markdown code fences.`;
+
+    const cloudApiKey = apiKey || hfToken || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY || process.env.HF_TOKEN;
+    const provider = apiProvider || (cloudApiKey?.startsWith('gsk_') ? 'groq' : (cloudApiKey?.startsWith('sk-') ? 'openai' : 'huggingface'));
+
+    let revised = null;
+    let engine = 'Built-in Point & Comment Engine';
+
+    if (cloudApiKey) {
+      const cloudRes = await callCloudLLMAPI({
+        provider,
+        apiKey: cloudApiKey,
+        model: hfModel,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert Clinical Protocol Principal Investigator. When given a single protocol paragraph and a reviewer comment/instruction, output ONLY the revised replacement paragraph in clean GitHub Flavored Markdown. Do not include conversational filler like "Here is the revised paragraph:".'
+          },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.2,
+        maxTokens: 800
+      });
+
+      if (cloudRes && cloudRes.content) {
+        revised = cloudRes.content.trim();
+        engine = `Cloud API (${cloudRes.provider}: ${cloudRes.model})`;
+      }
+    }
+
+    // Fallback if cloud API not configured or failed
+    if (!revised) {
+      revised = transformProtocolContent({
+        activeContent: paragraphText,
+        userPrompt: comment,
+        protocolTitle,
+        stepTitle: sectionTitle
+      });
+      engine = 'Built-in Clinical Point & Edit Engine';
+    }
+
+    // Always run through Level 5 LaTeX Math & Syntax Refinement Filter
+    const finalClean = refineClinicalContent(revised);
+
+    res.json({
+      revisedParagraph: finalClean,
+      engine
+    });
+  } catch (err) {
+    console.error('[Paragraph Revise] Error:', err);
+    res.status(500).json({ error: 'Paragraph revision failed: ' + err.message });
   }
 });
 

@@ -63,10 +63,19 @@ def health():
 @app.route("/generate", methods=["POST"])
 def generate():
     data = request.get_json(force=True)
-    system_prompt = data.get("systemPrompt", "You are an expert clinical trial protocol medical writer.")
+    default_system = (
+        "You are an expert Clinical Protocol Principal Investigator and Regulatory Medical Writer specializing in ICH M11, ICH GCP E6(R2/R3), and FDA/EMA clinical trial protocols.\n"
+        "CRITICAL WRITING DIRECTIVES:\n"
+        "1. WRITE EXTENSIVE, IN-DEPTH, FULL-LENGTH CONTENT: Never produce shallow summaries, short placeholders, or brief snippets.\n"
+        "2. BIGGER NARRATIVE PARAGRAPHS: Each narrative paragraph must be substantial and exhaustive (at least 4 to 8 detailed clinical sentences per paragraph) providing deep scientific rationale, mechanism of action, clinical context, and regulatory justification.\n"
+        "3. EXHAUSTIVE MULTI-POINT BREAKDOWNS: When providing points, criteria, or procedures, generate comprehensive, detailed lists (at least 8 to 15 distinct numbered or bulleted items) with concrete numerical cutoffs, units, time windows, and procedural rules.\n"
+        "4. REGULATORY & OPERATIONAL RIGOR: Detail all clinical procedures, investigator responsibilities, safety monitoring guidelines, stopping criteria, and audit standards in full depth.\n"
+        "5. Clean GitHub Flavored Markdown with professional clinical headings and sub-clauses."
+    )
+    system_prompt = data.get("systemPrompt") or default_system
     user_prompt = data.get("userPrompt", "")
-    max_tokens = min(int(data.get("maxTokens", 1200)), 1500)
-    temperature = float(data.get("temperature", 0.4))
+    max_tokens = min(int(data.get("maxTokens", 4096)), 8192)
+    temperature = float(data.get("temperature", 0.35))
 
     if not user_prompt.strip():
         return jsonify({"success": False, "error": "Empty user prompt"}), 400
@@ -84,7 +93,9 @@ def generate():
             messages,
             max_new_tokens=max_tokens,
             temperature=temperature,
-            do_sample=temperature > 0.1,
+            do_sample=temperature > 0.05,
+            top_p=0.92,
+            repetition_penalty=1.12,
             pad_token_id=pipeline.tokenizer.eos_token_id
         )
         content = outputs[0]["generated_text"][-1]["content"]
@@ -108,7 +119,7 @@ def edit_section():
     instruction = data.get("instruction", "")
     protocol_title = data.get("protocolTitle", "")
     step_title = data.get("stepTitle", "")
-    max_tokens = min(int(data.get("maxTokens", 1200)), 1500)
+    max_tokens = min(int(data.get("maxTokens", 2500)), 4096)
 
     if not instruction.strip():
         return jsonify({"success": False, "error": "Empty edit instruction"}), 400
@@ -117,18 +128,23 @@ def edit_section():
         return jsonify({"success": False, "error": "Local pipeline is not loaded"}), 500
 
     system_prompt = (
-        "You are an expert Clinical Protocol Principal Investigator and Regulatory Medical Writer. "
-        "The user will give you an existing clinical trial protocol draft and an instruction or question. "
-        "If the user asks to modify, format, rewrite, or update the draft: output the complete revised section incorporating the changes in clean GitHub Flavored Markdown. "
-        "If the user asks an exploratory question or requests advice: answer the question thoroughly with clinical specificity and regulatory recommendations."
+        "You are an expert Clinical Protocol Principal Investigator and Regulatory Medical Writer specializing in ICH M11, ICH GCP E6(R2/R3), and FDA/EMA clinical trial protocols.\n"
+        "CRITICAL WRITING DIRECTIVES FOR EXPANDED CONTENT:\n"
+        "1. WRITE EXTENSIVE, BIGGER PARAGRAPHS: Each paragraph must be substantial, rich, and deeply articulated (at least 4 to 8 comprehensive sentences), elaborating on scientific rationale, clinical pharmacology, patient safety safeguards, and regulatory basis.\n"
+        "2. GENERATE MORE POINTS AND SUB-CLAUSES: When drafting or revising criteria, procedures, endpoints, or schedules, provide exhaustive multi-point lists (at least 8 to 15 distinct, structured points) with exact laboratory cutoffs, units, time windows, and clinical management rules.\n"
+        "3. AVOID BREVITY OR SUMMARIES: Do not compress, truncate, or summarize into short snippets. Output full-length, regulatory-ready protocol sections.\n"
+        "4. Clean GitHub Flavored Markdown with structured subheadings, numbered lists, and bullet points."
     )
 
     user_prompt = (
         f"Protocol Title: {protocol_title}\n"
-        f"Section: {step_title}\n\n"
-        f"=== EXISTING SECTION DRAFT ===\n{active_content[:3000]}\n\n"
+        f"Section Title: {step_title}\n\n"
+        f"=== EXISTING SECTION DRAFT ===\n{active_content[:15000]}\n\n"
         f"=== USER INSTRUCTION / QUESTION ===\n{instruction}\n\n"
-        f"Please provide your response or the complete rewritten section incorporating the requested changes:"
+        "=== MANDATORY OUTPUT SPECIFICATIONS ===\n"
+        "- Generate BIGGER, MORE DETAILED PARAGRAPHS with comprehensive clinical and scientific depth.\n"
+        "- Generate MORE POINTS, sub-clauses, and exhaustive criteria (numerical thresholds, units, timepoints, monitoring rules).\n"
+        "- Provide the complete, fully articulated rewritten section incorporating all requested modifications without omitting existing valid clinical details:\n"
     )
 
     messages = [
@@ -140,9 +156,10 @@ def edit_section():
         outputs = pipeline(
             messages,
             max_new_tokens=max_tokens,
-            temperature=0.3,
+            temperature=0.35,
             do_sample=True,
-            top_p=0.9,
+            top_p=0.92,
+            repetition_penalty=1.12,
             pad_token_id=pipeline.tokenizer.eos_token_id
         )
         content = outputs[0]["generated_text"][-1]["content"]

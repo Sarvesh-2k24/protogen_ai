@@ -20,7 +20,7 @@ export default function Navbar({
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-slate-100 sticky top-0 z-40 backdrop-blur-md bg-slate-900/90 shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        
+
         {/* Brand & Subtitle */}
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-bold">
@@ -77,11 +77,10 @@ export default function Navbar({
           <button
             onClick={onGenerateAll}
             disabled={isGeneratingAll}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer ${
-              isGeneratingAll
-                ? 'bg-indigo-700/50 text-indigo-200 cursor-wait'
-                : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/25'
-            }`}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer ${isGeneratingAll
+              ? 'bg-indigo-700/50 text-indigo-200 cursor-wait'
+              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/25'
+              }`}
             title="Sequentially generate all 13 ICH M11 protocol sections"
           >
             {isGeneratingAll ? (
@@ -115,14 +114,14 @@ export default function Navbar({
             >
               .MD
             </button>
-            <div className="w-px h-5 bg-blue-400/30" />
-            <button
+            {/* <div className="w-px h-5 bg-blue-400/30" /> */}
+            {/* <button
               onClick={onPrintPdf}
               className="px-2 py-1.5 hover:bg-blue-700 rounded-r-lg text-[11px] transition-colors cursor-pointer"
               title="Print or Save to PDF"
             >
               PDF
-            </button>
+            </button> */}
           </div>
         </div>
 

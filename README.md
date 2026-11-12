@@ -31,7 +31,7 @@ A specialized AI medical writing assistant and clinical trial protocol generator
 
 3. **Hugging Face Free LLM Engine & Zero-Configuration Fallback**:
    - Integrated with Hugging Face Serverless Inference:
-     - `meta-llama/Llama-3.1-8B-Instruct` (Meta - Recommended)
+     - `huihui-ai/Qwen2.5-72B-Instruct-abliterated` (Meta - Recommended)
      - `Qwen/Qwen2.5-72B-Instruct` (Alibaba)
      - `mistralai/Mistral-7B-Instruct-v0.3` (Mistral AI)
      - `google/gemma-2-9b-it` (Google)

@@ -9,15 +9,15 @@ const LLM_SERVER_URL = process.env.LLM_SERVER_URL || 'http://localhost:5001';
 
 const AVAILABLE_HF_MODELS = [
   { id: 'Qwen/Qwen2.5-0.5B-Instruct', name: 'Qwen2.5 Neural Engine (Local RTX 3050 GPU)', freeTier: true },
-  { id: 'meta-llama/Llama-3.1-8B-Instruct', name: 'Meta-Llama 3.1 8B Instruct (Hugging Face)', freeTier: true }
+  { id: 'huihui-ai/Qwen2.5-72B-Instruct-abliterated', name: 'Meta-Llama 3.1 8B Instruct (Hugging Face)', freeTier: true }
 ];
 
 /**
  * Call the Python LLM server for neural editing
  */
-async function callPythonLLMEdit({ activeContent, instruction, protocolTitle, stepTitle }) {
+async function callPythonLLMEdit({ activeContent, instruction, protocolTitle, stepTitle, maxTokens = 2500 }) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000);
+  const timeout = setTimeout(() => controller.abort(), 120_000);
 
   try {
     const res = await fetch(`${LLM_SERVER_URL}/edit`, {
@@ -27,7 +27,8 @@ async function callPythonLLMEdit({ activeContent, instruction, protocolTitle, st
         activeContent,
         instruction,
         protocolTitle,
-        stepTitle
+        stepTitle,
+        maxTokens
       }),
       signal: controller.signal
     });
@@ -55,7 +56,7 @@ async function callPythonLLMEdit({ activeContent, instruction, protocolTitle, st
  */
 async function callPythonLLMServer({ systemPrompt, userPrompt, temperature, maxTokens }) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000);
+  const timeout = setTimeout(() => controller.abort(), 120_000);
 
   try {
     const res = await fetch(`${LLM_SERVER_URL}/generate`, {
@@ -64,8 +65,8 @@ async function callPythonLLMServer({ systemPrompt, userPrompt, temperature, maxT
       body: JSON.stringify({
         systemPrompt,
         userPrompt,
-        temperature: temperature ?? 0.3,
-        maxTokens: maxTokens ?? 1200
+        temperature: temperature ?? 0.35,
+        maxTokens: maxTokens ?? 2500
       }),
       signal: controller.signal
     });
@@ -115,8 +116,8 @@ async function callHuggingFaceLLM({
   userPrompt,
   userInstruction = '',
   apiKey,
-  temperature = 0.3,
-  maxTokens = 1200,
+  temperature = 0.35,
+  maxTokens = 2500,
   activeContent = '',
   protocolTitle = '',
   stepTitle = ''

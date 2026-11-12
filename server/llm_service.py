@@ -9,9 +9,9 @@ import os
 
 def generate_with_transformers(system_prompt, user_prompt, max_tokens=1024, hf_token=None):
     """
-    Generate text using meta-llama/Llama-3.1-8B-Instruct via transformers or huggingface_hub
+    Generate text using huihui-ai/Qwen2.5-72B-Instruct-abliterated via transformers or huggingface_hub
     """
-    model_id = "meta-llama/Llama-3.1-8B-Instruct"
+    model_id = "huihui-ai/Qwen2.5-72B-Instruct-abliterated"
     token = hf_token or os.environ.get("HF_TOKEN") or os.environ.get("HF_API_KEY")
 
     messages = [
